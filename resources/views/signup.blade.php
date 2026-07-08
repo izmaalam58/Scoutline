@@ -38,6 +38,11 @@
                     <label class="form-label">Password</label>
                     <input type="password" name="password" class="form-input" required placeholder="••••••••">
                 </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Confirm Password</label>
+                    <input type="password" name="password_confirmation" class="form-input" required placeholder="••••••••">
+                </div>
 
                 <button type="submit" class="btn-primary">Register Account</button>
             </form>
