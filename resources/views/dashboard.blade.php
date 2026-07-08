@@ -8,47 +8,85 @@
         </button>
     </x-slot:navActions>
 
-    <!-- Operational Search Viewport -->
     <section class="dashboard">
         
         <div class="dash-head">
             <h2>Local Business Discovery</h2>
-            <span class="scope-count" id="scopeCount">Scope idle</span>
+            <span class="scope-count" id="scopeCount">
+                @if(session('results'))
+                    Scope active: {{ count(session('results')) }} leads found
+                @else
+                    Scope idle
+                @endif
+            </span>
         </div>
 
-        <div class="console">
+        <form action="{{ route('scan') }}" method="POST" class="console">
+            @csrf
             <div class="console-field">
                 <label for="categoryInput">Business Category</label>
-                <input type="text" id="categoryInput" placeholder="e.g. Logistics, Bakery, Clinics" value="Logistics">
+                <input type="text" id="categoryInput" name="category" placeholder="e.g. Logistics, Bakery, Clinics" value="{{ old('category', 'Logistics') }}">
             </div>
             <div class="console-field">
                 <label for="locationInput">Location Target</label>
-                <input type="text" id="locationInput" placeholder="e.g. Gulberg, Lahore" value="Gulberg, Lahore">
+                <input type="text" id="locationInput" name="location" placeholder="e.g. Gulberg, Lahore" value="{{ old('location', 'Gulberg, Lahore') }}">
             </div>
-            <button class="btn btn-signal" id="scanBtn" onclick="runScan()">
+            <button type="submit" class="btn btn-signal" id="scanBtn">
                 <span class="mini-sweep" id="btnSweep"></span>
                 <span id="scanBtnLabel">Run Scan</span>
             </button>
-        </div>
+        </form>
 
-        <!-- Scanning Diagnostics Pulse Bar -->
-        <div class="scan-status" id="scanStatus">
-            <div class="mini-sweep"></div>
-            <span id="scanMessage">Interrogating live local registers...</span>
-        </div>
+        @if(session('success'))
+            <div class="scan-status" id="scanStatus" style="display: flex; background: rgba(16, 185, 129, 0.1); border-color: #10b981;">
+                <span id="scanMessage" style="color: #10b981;">{{ session('success') }}</span>
+            </div>
+        @endif
 
-        <!-- System Output Ledger Grid -->
         <div id="resultsArea">
             <div class="ledger">
-                <div class="empty-state">
-                    <div class="eyebrow status-offline">Scope Offline</div>
-                    <p>Enter a business category and location target above, then execute a scan sequence.</p>
-                </div>
+                @if (session('results'))
+                    @if (count(session('results')) === 0)
+                        <div class="empty-state">
+                            <div class="eyebrow status-offline">0 Leads Extracted</div>
+                            <p>No matching businesses were detected by the scan engine. Try searching a broader term like 'restaurant'.</p>
+                        </div>
+                    @else
+                        <div style="overflow-x: auto; width: 100%;">
+                            <table style="width: 100%; border-collapse: collapse; margin-top: 1rem; text-align: left;">
+                                <thead style="background: rgba(255,255,255,0.05);">
+                                    <tr>
+                                        <th style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 13px; font-weight: 600;">Business Name</th>
+                                        <th style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 13px; font-weight: 600;">Address Target</th>
+                                        <th style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 13px; font-weight: 600;">Category Variable</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (session('results') as $business)
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                            <td style="padding: 12px; font-size: 14px; color: #fff;">{{ $business['name'] }}</td>
+                                            <td style="padding: 12px; font-size: 14px; color: #a1a1aa;">{{ $business['address'] }}</td>
+                                            <td style="padding: 12px; font-size: 14px;">
+                                                <span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 2px 8px; rounded: 4px; font-size: 12px;">
+                                                    {{ $business['category'] }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                @else
+                    <div class="empty-state">
+                        <div class="eyebrow status-offline">Scope Offline</div>
+                        <p>Enter a business category and location target above, then execute a scan sequence.</p>
+                    </div>
+                @endif
             </div>
         </div>
     </section>
 
-    <!-- Layered Windows & Flyout Slide Drawers -->
     <x-slot:modalsAndDrawers>
         <div class="drawer-overlay" id="appDrawerOverlay" onclick="toggleNavDrawer(false)"></div>
         
@@ -110,6 +148,5 @@
         </div>
     </x-slot:modalsAndDrawers>
 
-    <!-- External Script Assets Injection -->
-        <script src="{{ asset('js/dashboard.js') }}"></script>
+    <script src="{{ asset('js/dashboard.js') }}"></script>
 </x-layout>

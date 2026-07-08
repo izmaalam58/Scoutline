@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\LoginController;
-
+use App\Http\Controllers\LeadScanController;
 
 Route::get('/', function () {
     return view('landing');
@@ -25,3 +25,6 @@ Route::get('/dashboard', function () {
 Route::get('/login', [LoginController::class, 'create'])->name('login');
 Route::post('/login', [LoginController::class, 'store']);
 Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
+// --- LEAD SCAN SYSTEM ---
+Route::post('/scan', [LeadScanController::class, 'scan'])->name('scan');
