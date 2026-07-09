@@ -1,5 +1,5 @@
 <x-layout>
-        <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
     <x-slot:title>Prospector — Live Lead Radar</x-slot:title>
 
     <x-slot:navActions>
@@ -21,15 +21,16 @@
             </span>
         </div>
 
-        <form action="{{ route('scan') }}" method="POST" class="console">
+        <form action="{{ route('scan') }}" method="POST" class="console" id="scanForm">
             @csrf
             <div class="console-field">
                 <label for="categoryInput">Business Category</label>
-                <input type="text" id="categoryInput" name="category" placeholder="e.g. Logistics, Bakery, Clinics" value="{{ old('category', 'Logistics') }}">
+                <input type="text" id="categoryInput" name="category" placeholder="e.g. Logistics, Bakery, Clinics" value="{{ old('category', session('last_category', '')) }}">
+</div>
             </div>
             <div class="console-field">
                 <label for="locationInput">Location Target</label>
-                <input type="text" id="locationInput" name="location" placeholder="e.g. Gulberg, Lahore" value="{{ old('location', 'Gulberg, Lahore') }}">
+                <input type="text" id="locationInput" name="location" placeholder="e.g. Gulberg, Lahore" value="{{ old('location', session('last_location', '')) }}">
             </div>
             <button type="submit" class="btn btn-signal" id="scanBtn">
                 <span class="mini-sweep" id="btnSweep"></span>
@@ -43,9 +44,17 @@
             </div>
         @endif
 
-        <div id="resultsArea">
+        <!-- data-enrich-url: passed from the View (MVC) so JS never hardcodes the endpoint -->
+        <div id="resultsArea" data-enrich-url="{{ route('api.enrich') }}">
             <div class="ledger">
                 @if (session('results'))
+                
+
+@if(session('error'))
+    <div class="scan-status" id="scanStatusError" style="display: flex; background: rgba(239, 68, 68, 0.1); border-color: #ef4444;">
+        <span style="color: #ef4444;">{{ session('error') }}</span>
+    </div>
+@endif
                     @if (count(session('results')) === 0)
                         <div class="empty-state">
                             <div class="eyebrow status-offline">0 Leads Extracted</div>
@@ -58,7 +67,10 @@
                                     <tr>
                                         <th style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 13px; font-weight: 600;">Business Name</th>
                                         <th style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 13px; font-weight: 600;">Address Target</th>
+                                        <th style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 13px; font-weight: 600;">Phone Line</th>
+                                        <th style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 13px; font-weight: 600;">Web Domain</th>
                                         <th style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 13px; font-weight: 600;">Category Variable</th>
+                                        <th style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 13px; font-weight: 600;">Intelligence Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -66,10 +78,34 @@
                                         <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                                             <td style="padding: 12px; font-size: 14px; color: #fff;">{{ $business['name'] }}</td>
                                             <td style="padding: 12px; font-size: 14px; color: #a1a1aa;">{{ $business['address'] }}</td>
+                                            <td style="padding: 12px; font-size: 14px; color: #60a5fa;">{{ $business['phone'] }}</td>
                                             <td style="padding: 12px; font-size: 14px;">
-                                                <span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 2px 8px; rounded: 4px; font-size: 12px;">
+                                                @if($business['website'] !== 'No Website Listed')
+                                                    <a href="{{ $business['website'] }}" target="_blank" style="color: #10b981; text-decoration: underline;">Open URL</a>
+                                                @else
+                                                    <span style="color: #71717a;">Unavailable</span>
+                                                @endif
+                                            </td>
+                                            <td style="padding: 12px; font-size: 14px;">
+                                                <span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 2px 8px; border-radius: 4px; font-size: 12px;">
                                                     {{ $business['category'] }}
                                                 </span>
+                                            </td>
+                                            <td style="padding: 12px;">
+                                                <button
+                                                    class="reveal-btn"
+                                                    id="fetchBtn-{{ $loop->index }}"
+                                                    data-business-name="{{ $business['name'] }}"
+                                                    data-business-website="{{ $business['website'] !== 'No Website Listed' ? $business['website'] : '' }}"
+                                                    onclick="enrichLeads({{ $loop->index }})"
+                                                >
+                                                    Fetch Leads
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr id="leadRow-{{ $loop->index }}" class="nested-lead-row" style="display: none;">
+                                            <td colspan="6">
+                                                <div class="nested-lead-wrapper" id="leadWrapper-{{ $loop->index }}"></div>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -94,20 +130,19 @@
             <div class="drawer-head">
                 <span class="drawer-close" onclick="toggleNavDrawer(false)">&times;</span>
                 <h3>Menu</h3>
-                <div class="drawer-sub">OPERATOR:{{ auth()->user()->email }}</div>
+                <div class="drawer-sub">OPERATOR: {{ auth()->user()->email }}</div>
             </div>
             
             <div class="drawer-body">
                 <div class="field group-spacing">
                     <label>Navigation Links</label>
                     <a href="{{ url('/') }}" class="btn btn-ghost side-nav-link">
-                         Home
-                    </a><br></br>
+                        Home
+                    </a>
                     <button class="btn btn-ghost side-nav-link" onclick="handleProfileAlert()">
                         Profile Details
                     </button>
                 </div>
-<br></br>
 
                 <div class="field group-spacing">
                     <label>Recent Queries Archive</label>
@@ -129,9 +164,7 @@
                         </div>
                     </div>
                 </div>
-                <br></br>
 
-                
                 <div class="drawer-actions-divider">
                     <form action="{{ route('logout') }}" method="POST">
                         @csrf
